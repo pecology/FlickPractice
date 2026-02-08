@@ -458,10 +458,10 @@ button {
 
 .keyboard-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--spacing-sm);
   width: 100%;
-  max-width: 400px;
+  max-width: 300px;
 }
 
 .flick-key {

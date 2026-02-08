@@ -29,6 +29,10 @@ export class GameScreen implements Screen {
   private isCountdown: boolean = false;
   private countdownValue: number = 0;
   
+  // 濁点入力状態
+  private pendingBaseChar: string | null = null;  // 濁点待ちの清音
+  private pendingDakutenType: 'dakuten' | 'handakuten' | null = null;  // 必要な濁点種別
+  
   // DOM要素
   private container: HTMLElement | null = null;
   private timerEl: HTMLElement | null = null;
@@ -43,6 +47,9 @@ export class GameScreen implements Screen {
   
   // ゲームデータ
   private gameData: GameData | null = null;
+  
+  // マウス操作用
+  private activeKeyElement: HTMLElement | null = null;
 
   constructor(context: ScreenContext) {
     this.context = context;
@@ -178,14 +185,130 @@ export class GameScreen implements Screen {
         e.preventDefault();
         this.flickKeyboard?.handleTouchEnd(e as TouchEvent, element);
       }, { passive: false });
+      
+      // マウスイベント（PC対応）
+      element.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        this.activeKeyElement = element;
+        this.flickKeyboard?.handleMouseDown(e as MouseEvent, element);
+      });
+      
+      element.addEventListener('mousemove', (e) => {
+        if (this.activeKeyElement === element) {
+          this.flickKeyboard?.handleMouseMove(e as MouseEvent, element);
+        }
+      });
+      
+      element.addEventListener('mouseup', (e) => {
+        if (this.activeKeyElement === element) {
+          this.flickKeyboard?.handleMouseUp(e as MouseEvent, element);
+          this.activeKeyElement = null;
+        }
+      });
+      
+      element.addEventListener('mouseleave', () => {
+        // ドラッグ中にキーから離れた場合も継続
+      });
     });
+    
+    // ドキュメントレベルのマウスアップハンドラ（キー外でリリースした場合）
+    document.addEventListener('mouseup', this.handleDocumentMouseUp);
   }
+  
+  private handleDocumentMouseUp = (e: MouseEvent): void => {
+    if (this.activeKeyElement && this.flickKeyboard) {
+      this.flickKeyboard.handleMouseUp(e, this.activeKeyElement);
+      this.activeKeyElement = null;
+    }
+  };
 
   private handleFlickInput(char: string, direction: FlickDirection): void {
     // カウントダウン中は入力を無視
     if (this.isCountdown || !this.isRunning) return;
     
     const expected = this.characters[this.currentIndex];
+    
+    // 濁点・半濁点の処理
+    if (char === '゛' || char === '゜') {
+      // 濁点/半濁点キーが押された
+      if (this.pendingBaseChar) {
+        // 清音が入力済みなら、濁点変換を確認
+        const map = char === '゛' ? this.config.dakutenMap : this.config.handakutenMap;
+        const converted = map[this.pendingBaseChar];
+        
+        if (converted && converted === expected) {
+          // 正解！
+          this.strokes.push({
+            input: converted,
+            expected,
+            correct: true,
+            timestamp: Date.now() - this.startTime,
+            flickDirection: direction,
+          });
+          this.pendingBaseChar = null;
+          this.pendingDakutenType = null;
+          this.currentIndex++;
+          this.renderTrack();
+          this.updateStats();
+          this.highlightNextKey();
+          return;
+        } else {
+          // 不正解（間違った濁点）
+          this.strokes.push({
+            input: converted || char,
+            expected,
+            correct: false,
+            timestamp: Date.now() - this.startTime,
+            flickDirection: direction,
+          });
+          this.shakeTypingArea();
+          this.pendingBaseChar = null;
+          this.pendingDakutenType = null;
+          this.currentIndex++;
+          this.renderTrack();
+          this.updateStats();
+          this.highlightNextKey();
+          return;
+        }
+      }
+      // 清音が入力されていないのに濁点キーを押した場合は無視
+      return;
+    }
+    
+    // 清音の入力
+    const needsDakuten = this.flickKeyboard?.needsDakuten(expected);
+    
+    if (needsDakuten) {
+      // 期待される文字が濁点付きの場合
+      const baseChar = this.flickKeyboard?.getBaseChar(expected);
+      
+      if (char === baseChar) {
+        // 清音が正しく入力された -> 濁点待ち状態へ
+        this.pendingBaseChar = char;
+        this.pendingDakutenType = needsDakuten;
+        this.highlightNextKey();
+        return;
+      } else {
+        // 間違った清音が入力された
+        this.strokes.push({
+          input: char,
+          expected,
+          correct: false,
+          timestamp: Date.now() - this.startTime,
+          flickDirection: direction,
+        });
+        this.shakeTypingArea();
+        this.pendingBaseChar = null;
+        this.pendingDakutenType = null;
+        this.currentIndex++;
+        this.renderTrack();
+        this.updateStats();
+        this.highlightNextKey();
+        return;
+      }
+    }
+    
+    // 通常の文字入力（濁点なし）
     const correct = char === expected;
     
     // 打鍵記録
@@ -201,6 +324,10 @@ export class GameScreen implements Screen {
     if (!correct) {
       this.shakeTypingArea();
     }
+    
+    // 濁点待ち状態をクリア
+    this.pendingBaseChar = null;
+    this.pendingDakutenType = null;
     
     // 次の文字へ
     this.currentIndex++;
@@ -218,17 +345,43 @@ export class GameScreen implements Screen {
     
     // 既存のハイライトを削除
     const allKeys = this.keyboardEl.querySelectorAll('.flick-key');
-    allKeys.forEach(key => key.classList.remove('next-key'));
+    allKeys.forEach(key => {
+      key.classList.remove('next-key', 'dakuten-pending');
+      key.removeAttribute('data-next-direction');
+    });
+    
+    // 濁点待ち状態の場合
+    if (this.pendingBaseChar && this.pendingDakutenType) {
+      // 濁点キーをハイライト
+      const dakutenKeyIndex = this.flickKeyboard.getKeyIndexForChar('゛');
+      if (dakutenKeyIndex >= 0) {
+        const keyEl = this.keyboardEl.querySelector(`[data-key-index="${dakutenKeyIndex}"]`);
+        if (keyEl) {
+          keyEl.classList.add('next-key', 'dakuten-pending');
+          const direction = this.pendingDakutenType === 'dakuten' ? 'center' : 'left';
+          keyEl.setAttribute('data-next-direction', direction);
+        }
+      }
+      return;
+    }
     
     // 次の文字のキーを取得
     const nextChar = this.characters[this.currentIndex];
     const nextKey = this.flickKeyboard.getKeyForChar(nextChar);
-    const nextDirection = this.flickKeyboard.getDirectionForChar(nextChar);
+    let nextDirection = this.flickKeyboard.getDirectionForChar(nextChar);
+    
+    // 濁点付き文字の場合、元の清音の方向を取得
+    const needsDakuten = this.flickKeyboard.needsDakuten(nextChar);
+    if (needsDakuten) {
+      const baseChar = this.flickKeyboard.getBaseChar(nextChar);
+      if (baseChar) {
+        nextDirection = this.flickKeyboard.getDirectionForChar(baseChar);
+      }
+    }
     
     if (nextKey && nextDirection) {
       // 対応するキー要素を探す
-      const layout = this.flickKeyboard.getLayout();
-      const keyIndex = layout.findIndex(k => k.center === nextKey.center);
+      const keyIndex = this.flickKeyboard.getKeyIndexForChar(nextChar);
       if (keyIndex >= 0) {
         const keyEl = this.keyboardEl.querySelector(`[data-key-index="${keyIndex}"]`);
         if (keyEl) {
@@ -447,6 +600,9 @@ export class GameScreen implements Screen {
       this.flickKeyboard.cleanup();
       this.flickKeyboard = null;
     }
+    
+    // ドキュメントレベルのマウスイベントを解除
+    document.removeEventListener('mouseup', this.handleDocumentMouseUp);
     
     this.isRunning = false;
     this.isCountdown = false;

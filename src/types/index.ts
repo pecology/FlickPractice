@@ -70,6 +70,9 @@ export interface Config {
     hiragana: FlickKey[];
     alphabet: FlickKey[];
   };
+  dakutenMap: Record<string, string>;
+  handakutenMap: Record<string, string>;
+  smallKanaMap: Record<string, string>;
   ui: {
     shakeIntensity: number;
     shakeDuration: number;
