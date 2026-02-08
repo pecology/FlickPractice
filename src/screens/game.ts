@@ -33,6 +33,7 @@ export class GameScreen implements Screen {
   // 濁点入力状態
   private pendingBaseChar: string | null = null;  // 濁点待ちの清音
   private pendingDakutenType: 'dakuten' | 'handakuten' | null = null;  // 必要な濁点種別
+  private pendingDakutenCount: number = 0;  // 濁点キーの入力回数（半濁点用）
   
   // DOM要素
   private container: HTMLElement | null = null;
@@ -247,6 +248,18 @@ export class GameScreen implements Screen {
     if (char === '゛' || char === '゜') {
       // 濁点/半濁点キーが押された
       if (this.pendingBaseChar) {
+        // 半濁点が必要な場合、濁点キー2回で確定
+        if (this.pendingDakutenType === 'handakuten' && char === '゛') {
+          this.pendingDakutenCount++;
+          if (this.pendingDakutenCount < 2) {
+            // まだ待機中、ハイライト更新
+            this.highlightNextKey();
+            return;
+          }
+          // 2回目なので半濁点として確定
+          char = '゜';
+        }
+        
         // 清音が入力済みなら、濁点変換を確認
         const map = char === '゛' ? this.config.dakutenMap : this.config.handakutenMap;
         const converted = map[this.pendingBaseChar];
@@ -262,6 +275,7 @@ export class GameScreen implements Screen {
           });
           this.pendingBaseChar = null;
           this.pendingDakutenType = null;
+          this.pendingDakutenCount = 0;
           this.currentIndex++;
           this.renderTrack();
           this.updateStats();
@@ -279,6 +293,7 @@ export class GameScreen implements Screen {
           this.shakeTypingArea();
           this.pendingBaseChar = null;
           this.pendingDakutenType = null;
+          this.pendingDakutenCount = 0;
           this.currentIndex++;
           this.renderTrack();
           this.updateStats();
@@ -301,6 +316,7 @@ export class GameScreen implements Screen {
         // 清音が正しく入力された -> 濁点待ち状態へ
         this.pendingBaseChar = char;
         this.pendingDakutenType = needsDakuten;
+        this.pendingDakutenCount = 0;
         this.highlightNextKey();
         return;
       } else {
@@ -315,6 +331,7 @@ export class GameScreen implements Screen {
         this.shakeTypingArea();
         this.pendingBaseChar = null;
         this.pendingDakutenType = null;
+        this.pendingDakutenCount = 0;
         this.currentIndex++;
         this.renderTrack();
         this.updateStats();
@@ -376,8 +393,8 @@ export class GameScreen implements Screen {
         const keyEl = this.keyboardEl.querySelector(`[data-key-index="${dakutenKeyIndex}"]`);
         if (keyEl) {
           keyEl.classList.add('next-key', 'dakuten-pending');
-          const direction = this.pendingDakutenType === 'dakuten' ? 'center' : 'left';
-          keyEl.setAttribute('data-next-direction', direction);
+          // 濁点も半濁点もcenter（゛キー）を押せばOK
+          keyEl.setAttribute('data-next-direction', 'center');
         }
       }
       return;
