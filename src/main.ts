@@ -142,6 +142,10 @@ function getDefaultConfig(): Config {
       visibleCharsAfter: 20,
       flickThreshold: 30,
     },
+    settings: {
+      showKeyHighlight: true,
+      showDirectionHints: true,
+    },
     ranking: {
       S: 180,
       A: 120,

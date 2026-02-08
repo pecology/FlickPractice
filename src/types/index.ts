@@ -81,6 +81,10 @@ export interface Config {
     visibleCharsAfter: number;
     flickThreshold: number;  // フリック判定の閾値（ピクセル）
   };
+  settings: {
+    showKeyHighlight: boolean;  // 次のキーのハイライト表示
+    showDirectionHints: boolean;  // 上下左右の入力文字プレビュー
+  };
   ranking: {
     S: number;
     A: number;

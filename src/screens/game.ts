@@ -2,6 +2,7 @@ import type { Screen, ScreenContext, ScreenData } from './index';
 import type { FlickStroke, GameMode, InputMode, GameResult, Config, FlickDirection } from '../types';
 import { CharacterGenerator } from '../engine/generator';
 import { FlickKeyboard } from '../engine/flickKeyboard';
+import { getSettings, type UserSettings } from '../storage/localStorage';
 
 interface GameData {
   gameMode: GameMode;
@@ -50,10 +51,14 @@ export class GameScreen implements Screen {
   
   // マウス操作用
   private activeKeyElement: HTMLElement | null = null;
+  
+  // ユーザー設定
+  private userSettings: UserSettings;
 
   constructor(context: ScreenContext) {
     this.context = context;
     this.config = context.config;
+    this.userSettings = getSettings();
   }
 
   render(container: HTMLElement, data?: ScreenData): void {
@@ -148,8 +153,9 @@ export class GameScreen implements Screen {
     if (!this.keyboardEl || !this.flickKeyboard) return;
     
     const layout = this.flickKeyboard.getLayout();
+    const alwaysShowHints = this.userSettings.showDirectionHints;
     
-    let html = '<div class="keyboard-grid">';
+    let html = `<div class="keyboard-grid${alwaysShowHints ? ' show-hints-always' : ''}">`;
     
     layout.forEach((key, index) => {
       html += `
@@ -173,6 +179,7 @@ export class GameScreen implements Screen {
       
       element.addEventListener('touchstart', (e) => {
         e.preventDefault();
+        element.classList.add('touching');
         this.flickKeyboard?.handleTouchStart(e as TouchEvent, element);
       }, { passive: false });
       
@@ -183,13 +190,19 @@ export class GameScreen implements Screen {
       
       element.addEventListener('touchend', (e) => {
         e.preventDefault();
+        element.classList.remove('touching');
         this.flickKeyboard?.handleTouchEnd(e as TouchEvent, element);
       }, { passive: false });
+      
+      element.addEventListener('touchcancel', () => {
+        element.classList.remove('touching');
+      });
       
       // マウスイベント（PC対応）
       element.addEventListener('mousedown', (e) => {
         e.preventDefault();
         this.activeKeyElement = element;
+        element.classList.add('touching');
         this.flickKeyboard?.handleMouseDown(e as MouseEvent, element);
       });
       
@@ -201,6 +214,7 @@ export class GameScreen implements Screen {
       
       element.addEventListener('mouseup', (e) => {
         if (this.activeKeyElement === element) {
+          element.classList.remove('touching');
           this.flickKeyboard?.handleMouseUp(e as MouseEvent, element);
           this.activeKeyElement = null;
         }
@@ -217,6 +231,7 @@ export class GameScreen implements Screen {
   
   private handleDocumentMouseUp = (e: MouseEvent): void => {
     if (this.activeKeyElement && this.flickKeyboard) {
+      this.activeKeyElement.classList.remove('touching');
       this.flickKeyboard.handleMouseUp(e, this.activeKeyElement);
       this.activeKeyElement = null;
     }
@@ -349,6 +364,9 @@ export class GameScreen implements Screen {
       key.classList.remove('next-key', 'dakuten-pending');
       key.removeAttribute('data-next-direction');
     });
+    
+    // ハイライトがOFFの場合はここで終了
+    if (!this.userSettings.showKeyHighlight) return;
     
     // 濁点待ち状態の場合
     if (this.pendingBaseChar && this.pendingDakutenType) {

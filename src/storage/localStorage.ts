@@ -114,3 +114,43 @@ export function getRecentScores(inputMode: InputMode, count: number = 10): GameR
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
+
+// ---- 設定関連 ----
+
+const SETTINGS_KEY = 'flickpractice_settings';
+
+export interface UserSettings {
+  showKeyHighlight: boolean;
+  showDirectionHints: boolean;
+}
+
+const DEFAULT_SETTINGS: UserSettings = {
+  showKeyHighlight: true,
+  showDirectionHints: true,
+};
+
+/**
+ * ユーザー設定を取得
+ */
+export function getSettings(): UserSettings {
+  try {
+    const data = localStorage.getItem(SETTINGS_KEY);
+    if (!data) return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+/**
+ * ユーザー設定を保存
+ */
+export function saveSettings(settings: Partial<UserSettings>): void {
+  try {
+    const current = getSettings();
+    const updated = { ...current, ...settings };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
+  } catch {
+    console.error('Failed to save settings');
+  }
+}

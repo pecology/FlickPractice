@@ -1,7 +1,7 @@
 import type { Screen, ScreenContext } from './index';
 import type { InputMode } from '../types';
 import { dateToSeed, randomSeed } from '../engine/seededRandom';
-import { getDailyHighScore, getPracticeHighScore, getTodayDailyRecord } from '../storage/localStorage';
+import { getDailyHighScore, getPracticeHighScore, getTodayDailyRecord, getSettings, saveSettings } from '../storage/localStorage';
 
 /**
  * トップ画面
@@ -19,6 +19,7 @@ export class TopScreen implements Screen {
     const dailyHighScore = getDailyHighScore(this.currentInputMode);
     const practiceHighScore = getPracticeHighScore(this.currentInputMode);
     const todayRecord = getTodayDailyRecord(this.currentInputMode);
+    const settings = getSettings();
 
     container.innerHTML = `
       <div class="top-screen">
@@ -67,6 +68,22 @@ export class TopScreen implements Screen {
               </div>
             </div>
           </div>
+
+          <div class="settings-section">
+            <h2>設定</h2>
+            <div class="settings-list">
+              <label class="setting-item">
+                <span class="setting-label">キーハイライト</span>
+                <input type="checkbox" class="setting-checkbox" data-setting="showKeyHighlight" ${settings.showKeyHighlight ? 'checked' : ''}>
+                <span class="toggle-switch"></span>
+              </label>
+              <label class="setting-item">
+                <span class="setting-label">フリック方向表示</span>
+                <input type="checkbox" class="setting-checkbox" data-setting="showDirectionHints" ${settings.showDirectionHints ? 'checked' : ''}>
+                <span class="toggle-switch"></span>
+              </label>
+            </div>
+          </div>
         </main>
 
         <footer class="top-footer">
@@ -105,6 +122,16 @@ export class TopScreen implements Screen {
     const historyBtn = container.querySelector('.history-btn');
     historyBtn?.addEventListener('click', () => {
       this.context.navigateTo('history');
+    });
+
+    // 設定チェックボックス
+    const settingCheckboxes = container.querySelectorAll('.setting-checkbox');
+    settingCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        const settingName = target.getAttribute('data-setting') as 'showKeyHighlight' | 'showDirectionHints';
+        saveSettings({ [settingName]: target.checked });
+      });
     });
   }
 

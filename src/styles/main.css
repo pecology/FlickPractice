@@ -275,6 +275,76 @@ button {
   color: var(--text-secondary);
 }
 
+/* Settings Section */
+.settings-section {
+  text-align: center;
+  width: 100%;
+  margin-top: var(--spacing-lg);
+}
+
+.settings-section h2 {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--spacing-md);
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.setting-label {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.setting-checkbox {
+  display: none;
+}
+
+.toggle-switch {
+  width: 44px;
+  height: 24px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  position: relative;
+  transition: background var(--transition-normal);
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform var(--transition-normal), background var(--transition-normal);
+}
+
+.setting-checkbox:checked + .toggle-switch {
+  background: var(--accent-primary);
+}
+
+.setting-checkbox:checked + .toggle-switch::after {
+  transform: translateX(20px);
+  background: var(--text-primary);
+}
+
 /* Footer */
 .top-footer {
   margin-top: auto;
@@ -520,6 +590,24 @@ button {
   position: absolute;
   font-size: 0.625rem;
   color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+/* 設定ON: 常に表示 */
+.keyboard-grid.show-hints-always .key-up,
+.keyboard-grid.show-hints-always .key-down,
+.keyboard-grid.show-hints-always .key-left,
+.keyboard-grid.show-hints-always .key-right {
+  opacity: 1;
+}
+
+/* 設定OFF: タッチ中のみ方向文字を表示 */
+.flick-key.touching .key-up,
+.flick-key.touching .key-down,
+.flick-key.touching .key-left,
+.flick-key.touching .key-right {
+  opacity: 1;
 }
 
 .key-up {
